@@ -1,0 +1,62 @@
+\ifdefined\ispartofbook
+\else
+  \input{preamble.tex}
+  \begin{document}
+  \input{Image_CombinedDiagram.tex} % For standalone compilation
+  \input{Image_StatisticalPropagation.tex} % For standalone compilation
+\fi
+
+\input{Image_StatisticalPropagation.tex} % Include the new diagram command file
+
+\section{A Conceptual Framework for Statistical Propagation}
+\label{sec:conceptual_framework_stats}
+
+In Chapter \ref{chap:propagation}, we detailed the mechanics of how a neural network learns from data. The process, as illustrated in Figure \ref{fig:combine}, follows a clear path: a batch of data points, $\matr{X}$, is fed forward through the network, a scalar loss is computed based on the difference between the prediction and the true label, and the gradient of this loss is propagated backward to update the network's parameters. This paradigm, known as Stochastic Gradient Descent (SGD), has been the engine of the deep learning revolution. It is, however, fundamentally a sample-based process. The network learns by incrementally correcting its errors on small, discrete subsets of the data, iteratively adjusting its weights to better fit the training set.
+
+This subchapter proposes a conceptual departure from this paradigm. We will explore the author's intention to reframe the learning process not as an operation on discrete data points, but as a holistic transformation of entire probability distributions. This shift in perspective is the foundation of a powerful set of analytical tools that allow us to understand network behavior in a more deterministic and principled way, moving from a stochastic approximation of the learning process to an analytical characterization of it.
+
+\subsection{From Data Points to Distributions}
+Let us re-examine the propagation diagram (Figure \ref{fig:combine}) through a new, statistical lens. Instead of viewing the input $\matr{X}$ as a matrix of $m$ data samples, we will now posit that the entire input dataset can be effectively modeled by a single, high-dimensional Multivariate Normal distribution, $\mathcal{N}(\boldsymbol{\mu}_X, \boldsymbol{\Sigma}_X)$. The mean vector $\boldsymbol{\mu}_X$ represents the "average" input, and the covariance matrix $\boldsymbol{\Sigma}_X$ captures the variance of each feature and the correlations between them across the entire dataset.
+
+Under this new interpretation, the very nature of the information flowing through the network changes, as illustrated in Figure \ref{fig:stat_prop_diagram}.
+
+\begin{figure}[h!]
+    \centering
+    \scalebox{0.6}{\statisticalpropagationdiagram}
+    \caption{A conceptual comparison between standard sample-based propagation (top) and the proposed holistic, distribution-based propagation (bottom). Instead of processing a batch of data to get a scalar loss, the network transforms an entire input distribution to an output distribution, and the "loss" becomes a measure of divergence between distributions.}
+    \label{fig:stat_prop_diagram}
+\end{figure}
+
+The forward pass is transformed from a data processing pipeline into a \textbf{distributional transformation pipeline}. Its purpose is to compute how the network warps the input distribution into an output distribution.
+\begin{itemize}
+    \item The input, $A^{[0]}$, is no longer a matrix of data points, but the parameters $(\boldsymbol{\mu}_X, \boldsymbol{\Sigma}_X)$ that define the input statistical manifold.
+    \item Each subsequent activation, $A^{[l]}$, is also not a set of vectors, but a new probability distribution with its own mean and covariance, $(\boldsymbol{\mu}_{A^{[l]}}, \boldsymbol{\Sigma}_{A^{[l]}})$.
+\end{itemize}
+
+\subsection{Re-interpreting the Backward Pass}
+This conceptual shift extends naturally to the backward pass. In the standard paradigm, the loss $J$ is a scalar value representing the error for a specific mini-batch. In our new framework, the loss must be a measure of the dissimilarity between two entire probability distributions: the network's final output distribution and a target distribution (e.g., the distribution of the true labels). This could be a metric like the Kullback-Leibler (KL) divergence or the Wasserstein distance.
+
+Consequently, the backward pass undergoes a similar transformation:
+\begin{itemize}
+    \item It no longer propagates the gradient of a scalar loss. Instead, it must propagate the "gradient" of this distributional divergence.
+    \item The error signals, $\delta^{[l]}$, are no longer vectors of error values for each sample in a batch. They are themselves distributions, characterized by a mean and covariance, representing the statistical properties of the error signal.
+    \item The ultimate goal of this "statistical backpropagation" is to determine how to update the network's weights to optimally transform the input distribution into the target distribution, minimizing the divergence between them.
+\end{itemize}
+
+\subsection{The Recursive Challenge of Non-Linearity}
+The ultimate goal of this forward distributional pass is to determine the statistical properties of the final pre-activations, $p(\vect{Z}^{[L]})$, as this distribution directly informs the network's final output. However, one cannot simply jump from the input distribution $p(\vect{X})$ to the final pre-activation distribution $p(\vect{Z}^{[L]})$. The presence of non-linear activation functions makes this a recursive, layer-by-layer challenge.
+
+To find the distribution at the end of the network, we must be able to solve a fundamental, recurring problem at each layer: given an input distribution, what is the output distribution after it has been transformed by both a linear operation and a non-linear one? Specifically, the process is as follows:
+\begin{enumerate}
+    \item The input distribution to a layer, $p(\vect{A}^{[l-1]})$, is first passed through the affine transformation to produce the pre-activation distribution, $p(\vect{Z}^{[l]})$.
+    \item This pre-activation distribution is then passed through the element-wise non-linear ReLU function, producing the post-activation distribution, $p(\vect{A}^{[l]})$.
+    \item This new distribution, $p(\vect{A}^{[l]})$, then becomes the input for the next layer, and the process repeats.
+\end{enumerate}
+This chain of transformations—where the output distribution of one layer becomes the input distribution for the next—is the essence of \textbf{Analytical Moment Propagation (AMP)} \cite{Wright2024AnalyticCovariance, Schoenholz2017DeepInfoProp}. The core analytical task is to derive the mathematical rules that govern how the moments (mean and covariance) of a distribution are altered by each of these linear and non-linear steps.
+
+This subchapter has laid out the conceptual vision. The following subchapters will provide the detailed mathematical derivations required to turn this vision into a concrete analytical framework for both the forward and backward passes.
+
+\ifdefined\ispartofbook
+\else
+  \end{document}
+\fi

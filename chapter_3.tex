@@ -1,0 +1,117 @@
+\ifdefined\ispartofbook
+\else
+  \input{preamble.tex}
+  \begin{document}
+\fi
+
+\chapter{Statistical Characterization of Multivariate Rectification}
+\label{chap:multivariate_stats}
+
+\input{Image_ConditionalGaussian.tex} % Include the conditional Gaussian diagram
+
+This chapter builds upon the one-dimensional statistical concepts from Chapter 1 and extends the analysis to the more complex and realistic multivariate setting. It will provide a comprehensive treatment of the "forward problem": the challenge of calculating the mean vector and full covariance matrix of a rectified multivariate normal (RMVN) distribution. The chapter will dissect the analytical and computational challenges that arise from inter-variable correlations, moving from a concrete 2D example to the general N-dimensional case and surveying the state-of-the-art methods for finding a solution.
+
+\section{The Multivariate Normal Distribution: Parameter Estimation}
+\label{sec:mvn_estimation}
+
+The natural starting point for any multivariate analysis is the Multivariate Normal (MVN) distribution, also known as the multivariate Gaussian. It is the generalization of the familiar one-dimensional normal distribution to higher dimensions and serves as the fundamental building block for the models in this chapter \cite{Bishop2006PatternRecognition}.
+
+An $N$-dimensional random vector $\vect{X}$ is said to have an MVN distribution if every linear combination of its components has a univariate normal distribution. It is completely characterized by two parameters: an $N \times 1$ mean vector $\boldsymbol{\mu}$ and an $N \times N$ covariance matrix $\boldsymbol{\Sigma}$. We denote this as $\vect{X} \sim \mathcal{N}(\boldsymbol{\mu}, \boldsymbol{\Sigma})$.
+
+The focus of this section is on how these parameters are obtained from data. The standard approach is \textbf{Maximum Likelihood Estimation (MLE)}. Given a dataset of $m$ observations $\{\vect{x}_1, \dots, \vect{x}_m\}$, the principle of MLE is to find the parameter values $(\boldsymbol{\mu}, \boldsymbol{\Sigma})$ that maximize the probability of observing the given data. For the MVN distribution, this optimization yields a simple and intuitive closed-form solution \cite{Murphy2012ML}:
+\begin{itemize}
+    \item The MLE for the \textbf{mean vector} is the sample mean:
+    \begin{equation}
+        \hat{\boldsymbol{\mu}} = \frac{1}{m} \sum_{i=1}^m \vect{x}_i
+    \end{equation}
+    \item The MLE for the \textbf{covariance matrix} is the sample covariance:
+    \begin{equation}
+        \hat{\boldsymbol{\Sigma}} = \frac{1}{m} \sum_{i=1}^m (\vect{x}_i - \hat{\boldsymbol{\mu}})(\vect{x}_i - \hat{\boldsymbol{\mu}})^T
+    \end{equation}
+\end{itemize}
+In practice, the unbiased estimator for the sample covariance, which uses a $\frac{1}{m-1}$ denominator, is often preferred. This process of fitting a Gaussian model to data is the first step in many statistical analysis pipelines.
+
+\section{Properties of the MVN: Linearity, Marginals, and Conditionals}
+\label{sec:mvn_properties}
+
+The MVN distribution possesses several elegant properties that make it exceptionally tractable for analytical work.
+\begin{itemize}
+    \item \textbf{Closure under Affine Transformations:} The MVN family is closed under affine transformations. If $\vect{X} \sim \mathcal{N}(\boldsymbol{\mu}, \boldsymbol{\Sigma})$, then any linear transformation of that vector, $\vect{Y} = \matr{A}\vect{X} + \vect{b}$, is also normally distributed with mean $\matr{A}\boldsymbol{\mu} + \vect{b}$ and covariance $\matr{A}\boldsymbol{\Sigma}\matr{A}^T$. This property is fundamental to the analysis of linear layers in neural networks.
+
+    \item \textbf{Marginal Distributions:} Any subset of a multivariate normal vector is also multivariate normal. If we partition a vector $\vect{X} = [\vect{X}_a^T, \vect{X}_b^T]^T$, the marginal distribution of $\vect{X}_a$ is simply $\mathcal{N}(\boldsymbol{\mu}_a, \boldsymbol{\Sigma}_{aa})$, where $\boldsymbol{\mu}_a$ and $\boldsymbol{\Sigma}_{aa}$ are the corresponding blocks of the original mean vector and covariance matrix.
+
+    \item \textbf{Conditional Distributions:} Crucially, the conditional distribution of one subset given another is also Gaussian. The conditional distribution $p(\vect{X}_a | \vect{X}_b)$ is normal with a conditional mean and covariance given by:
+    \begin{align}
+        \boldsymbol{\mu}_{a|b} &= \boldsymbol{\mu}_a + \boldsymbol{\Sigma}_{ab} \boldsymbol{\Sigma}_{bb}^{-1} (\vect{X}_b - \boldsymbol{\mu}_b) \\
+        \boldsymbol{\Sigma}_{a|b} &= \boldsymbol{\Sigma}_{aa} - \boldsymbol{\Sigma}_{ab} \boldsymbol{\Sigma}_{bb}^{-1} \boldsymbol{\Sigma}_{ba}
+    \end{align}
+    These formulas are the engine of statistical inference in Gaussian models. The conditional mean provides the best linear estimate of $\vect{X}_a$ given $\vect{X}_b$, and the conditional covariance quantifies the remaining uncertainty. These equations form the basis for many generative models and analytical frameworks \cite{Murphy2012ML}.
+\end{itemize}
+
+\begin{figure}[h!]
+    \centering
+    \scalebox{0.8}{\conditionalgaussiandiagram}
+    \caption{An illustration of conditioning a bivariate normal distribution. Observing a value for $\vect{X}_b$ is equivalent to taking a slice through the joint distribution. The resulting conditional distribution $p(\vect{X}_a | \vect{X}_b)$ is a new Gaussian with an updated mean ($\boldsymbol{\mu}_{a|b}$) and a reduced variance ($\boldsymbol{\Sigma}_{a|b}$).}
+    \label{fig:conditional_gaussian}
+\end{figure}
+
+\section{Defining the Rectified Multivariate Normal Distribution (RMVN)}
+\label{sec:define_rmvn}
+
+The Rectified Multivariate Normal (RMVN) distribution is the result of applying the element-wise rectification operator to a vector drawn from an MVN distribution: $\vect{Y} = \max(\vect{0}, \vect{X})$ where $\vect{X} \sim \mathcal{N}(\boldsymbol{\mu}, \boldsymbol{\Sigma})$.
+
+This operation induces a combinatorial explosion in the underlying structure of the problem. While the one-dimensional space $\mathbb{R}$ is partitioned into two regions by the rectifier, the $N$-dimensional space $\mathbb{R}^N$ is partitioned into $2^N$ orthants, each defined by a unique combination of signs of the components of $\vect{X}$. The rectification operator maps each of these $2^N$ orthants onto a distinct subspace within the non-negative orthant $\mathbb{R}^N_+$.
+
+Consequently, the resulting distribution of $\vect{Y}$ is no longer a simple two-part mixture. It becomes a complex mixture of $2^N$ components:
+\begin{itemize}
+    \item One fully continuous distribution on the interior of $\mathbb{R}^N_+$ (where all components are positive), which is an N-dimensional Truncated Multivariate Normal (TMVN) distribution.
+    \item $2^N-1$ distributions supported on the lower-dimensional faces, edges, and vertices of this orthant (where one or more components are exactly zero). The most extreme case collapses the entire negative orthant to a single point mass at the origin, $\vect{Y} = \vect{0}$.
+\end{itemize}
+This fundamental change elevates the problem from a tractable statistical exercise to a formidable computational and analytical endeavor.
+
+\section{The Forward Problem: Moments of the RMVN}
+\label{sec:forward_problem_rmvn}
+
+The forward problem is to calculate the first two moments of the rectified vector $\mathbf{Y} = \max(\mathbf{0}, \mathbf{X})$—the rectified mean vector, $\boldsymbol{\mu}_Y = \E[\mathbf{Y}]$, and the rectified covariance matrix, $\boldsymbol{\Sigma}_Y = \text{Cov}(\mathbf{Y})$—given the original parameters $(\boldsymbol{\mu}, \boldsymbol{\Sigma})$.
+
+This task is fundamentally dependent on computing moments of the \textbf{Truncated Multivariate Normal (TMVN)} distribution. The $(i, j)$-th element of the second raw moment matrix is $E[Y_i Y_j] = E[\max(0, X_i)\max(0, X_j)]$. The integrand for this expectation is non-zero only when both $x_i > 0$ and $x_j > 0$. Therefore, the integral is:
+\begin{equation}
+E[Y_i Y_j] = \int_{x_i > 0, x_j > 0} x_i x_j f(\mathbf{x}; \boldsymbol{\mu}, \boldsymbol{\Sigma}) d\mathbf{x}
+\end{equation}
+This integral is the un-normalized second cross-moment of the original MVN truncated to the region where $x_i > 0$ and $x_j > 0$. The correlation structure encoded in $\boldsymbol{\Sigma}$ prevents this N-dimensional integral from decomposing into simpler 1D integrals. For dimensions $N > 2$, this integral, and thus the rectified moments, lack a general closed-form solution and are considered analytically intractable.
+
+\section{A Concrete Example: The Bivariate (2D) Case}
+\label{sec:bivariate_case}
+
+The bivariate case ($N=2$) is the highest dimension for which reasonably explicit analytical formulas can be presented. The problem is to find the five rectified moments from the five original parameters $(\mu_1, \mu_2, \sigma_1, \sigma_2, \rho)$. The rectified means and variances depend only on the marginal distributions and are identical in form to the 1D case. The primary challenge is the rectified covariance, $\text{Cov}(Y_1, Y_2) = E[Y_1 Y_2] - E[Y_1]E[Y_2]$. The expectation of the product, $E[Y_1 Y_2]$, is given by the integral of $x_1 x_2$ over the positive quadrant of the bivariate normal distribution.
+
+The analytical expression for this moment is well-established in the statistical literature \cite{Muthen1990CensoredMoments}. The complete expression for $E[Y_1 Y_2]$ is:
+\begin{align}
+E[Y_1 Y_2] = & (\mu_1 \mu_2 + \rho \sigma_1 \sigma_2) \Phi_2\left(\frac{\mu_1}{\sigma_1}, \frac{\mu_2}{\sigma_2}; \rho\right) \nonumber \\
+& + \mu_1 \sigma_2 \phi\left(\frac{\mu_2}{\sigma_2}\right)\Phi\left(\frac{\mu_1/\sigma_1 - \rho \mu_2/\sigma_2}{\sqrt{1-\rho^2}}\right) \nonumber \\
+& + \mu_2 \sigma_1 \phi\left(\frac{\mu_1}{\sigma_1}\right)\Phi\left(\frac{\mu_2/\sigma_2 - \rho \mu_1/\sigma_1}{\sqrt{1-\rho^2}}\right) \nonumber \\
+& + \sigma_1 \sigma_2 \sqrt{1-\rho^2} \phi_2\left(\frac{\mu_1}{\sigma_1}, \frac{\mu_2}{\sigma_2}; \rho\right)
+\end{align}
+where $\phi_2$ and $\Phi_2$ are the PDF and CDF of the standard bivariate normal distribution. This formula explicitly demonstrates the complex dependence on all five original parameters and the reliance on the bivariate normal CDF, which itself must be computed numerically.
+
+\section{Computational Methodologies for High Dimensions}
+\label{sec:computational_methods}
+
+Given the analytical intractability of the RMVN moments in high dimensions, the focus of modern research has been on developing effective computational algorithms.
+\begin{enumerate}
+    \item \textbf{The Moment Generating Function (MGF) Approach:} A classical approach pioneered by Tallis (1961) involves differentiating the MGF of the truncated distribution \cite{Tallis1961MGF}. While theoretically sound, the MGF itself is a complex integral, and differentiating it becomes exceptionally "tedious" and computationally explosive, making it impractical for high dimensions.
+
+    \item \textbf{Recurrence Relation Algorithms:} The state-of-the-art approach for high-precision numerical computation involves the use of recurrence relations \cite{KanRobotti2017TruncatedMoments}. This methodology transforms the problem from direct, intractable integration into a computationally feasible recursive procedure. It expresses a high-dimensional integral in terms of a sum of simpler, lower-dimensional integrals, which can be computed efficiently.
+
+    \item \textbf{Monte Carlo Methods:} When analytical precision is not paramount, Monte Carlo methods provide a flexible alternative.
+    \begin{itemize}
+        \item \textbf{Direct Simulation:} The simplest method is to draw a large number of samples from the original MVN, apply the rectifier to each sample, and then compute the sample moments of the resulting set.
+        \item \textbf{Gibbs Sampling:} A more sophisticated Markov Chain Monte Carlo (MCMC) technique, Gibbs sampling is particularly well-suited for sampling from truncated multivariate distributions. It iteratively draws from the conditional distribution of each variable given the others, which is a simple truncated univariate normal \cite{Geweke1991Gibbs}.
+    \end{itemize}
+\end{enumerate}
+
+\ifdefined\ispartofbook
+\else
+  \input{references.tex}
+  \end{document}
+\fi

@@ -1,0 +1,24 @@
+\ifdefined\ispartofbook
+\else
+  \input{preamble.tex}
+  \begin{document}
+\fi
+
+\chapter{Holistic Learning: Training Networks on Statistical Manifolds}
+\label{chap:holistic_learning}
+
+% Note: The command for the AMP Layer diagram is now included directly in chapter_7_2.tex
+
+This chapter proposes a conceptual and theoretical shift from the standard paradigm of stochastic, mini-batch-based training. We will explore the author's intention to evolve a neural network by operating directly on the statistical properties of the entire dataset, modeled as a single, high-dimensional Gaussian distribution. This approach reframes learning not as an iterative process of correcting errors from small samples, but as a holistic optimization of the network's transformation of one statistical manifold (the input distribution) to another (the target distribution). This chapter will lay the groundwork for understanding Analytical Moment Propagation and its implications for a more deterministic and principled view of deep learning.
+
+% --- Include Subchapters ---
+\input{chapter_7_1.tex}
+\input{chapter_7_2.tex}
+\input{chapter_7_3.tex}
+\input{chapter_7_4.tex}
+
+\ifdefined\ispartofbook
+\else
+  \input{references.tex}
+  \end{document}
+\fi

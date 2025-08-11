@@ -1,0 +1,118 @@
+\ifdefined\ispartofbook
+\else
+  \input{preamble.tex}
+  \begin{document}
+\fi
+
+\chapter{Deconstructing the Black Box: Frameworks for Interpretability}
+\label{chap:interpretability}
+
+This chapter will directly address one of the most significant challenges in modern AI: the "black box" problem. After building a theoretical understanding of network internals in the previous chapter, this chapter will introduce concrete analytical frameworks designed to make neural networks more transparent, understandable, and trustworthy. The focus will be on moving beyond simple performance metrics to a quantitative understanding of a network's intrinsic properties. We will survey the landscape of Explainable AI (XAI), motivating the need for global, quantitative methods, and then present two powerful analytical frameworks: the Optimal Linear Approximator (OLA) for measuring non-linearity, and Analytical Moment Propagation (AMP) for quantifying uncertainty.
+
+\section{The Imperative for Interpretability: The Black Box Problem and the Landscape of XAI}
+\label{sec:xai_landscape}
+
+\subsection{The Crisis of Opacity}
+The ascendancy of deep learning has been a paradigm shift in computational problem-solving. Models based on deep neural networks have achieved, and in many cases surpassed, human-level performance on a vast array of complex tasks \cite{Goodfellow2016Book}. Yet, this very complexity, which is the source of their power, is also the root of their greatest challenge: opacity.
+
+Deep neural networks are frequently described as "black box" models \cite{Rudin2019StopExplaining}. This term refers to the profound difficulty, even for the experts who design them, in understanding precisely \textit{how} a network arrives at a particular decision. The intricate web of millions of parameters combined with the cascading effects of non-linear activations creates a decision-making process that is practically impossible to trace in human-understandable terms. This crisis of opacity has profound real-world consequences as AI systems are deployed in high-stakes domains like healthcare, finance, and autonomous systems, where decisions have significant impacts on human lives and where trust, fairness, and reliability are non-negotiable \cite{AdadiBerrada2018XAISurvey}.
+
+\subsection{A Taxonomy of Explainable AI (XAI)}
+The field of Explainable AI (XAI) has emerged to address this challenge. To navigate the diverse landscape of solutions, it is useful to categorize methods based on their core principles.
+\begin{itemize}
+    \item \textbf{Intrinsic vs. Post-hoc:} Intrinsic methods involve designing models that are inherently understandable (e.g., linear regression, decision trees). Post-hoc methods are applied \textit{after} a complex model has been trained to explain its behavior without altering it. The frameworks in this chapter are post-hoc.
+    \item \textbf{Model-specific vs. Model-agnostic:} Model-specific techniques leverage the internal structure of a particular class of models (e.g., using gradients in a neural network). Model-agnostic methods treat the model as an opaque box, analyzing only its input-output behavior.
+    \item \textbf{Local vs. Global:} Local methods aim to explain a single, individual prediction (e.g., "Why was this specific image classified as a cat?"). Global methods seek to describe the overall behavior of the model across the entire dataset (e.g., "What general features has the model learned to associate with cats?").
+\end{itemize}
+
+Table \ref{tab:xai_taxonomy} situates several prominent XAI methods within this taxonomy, highlighting the unique position of the analytical frameworks we will discuss.
+
+\begin{table}[h!]
+\centering
+\caption{Taxonomy of prominent XAI methods.}
+\label{tab:xai_taxonomy}
+\begin{tabular}{@{}lllll@{}}
+\toprule
+\textbf{Method Name} & \textbf{Approach} & \textbf{Scope} & \textbf{Model-Dependence} & \textbf{Output} \\ \midrule
+\textbf{LIME} \cite{Ribeiro2016LIME} & Perturbation-based Surrogate & Local & Agnostic & Feature attributions for one prediction \\
+\textbf{SHAP} \cite{LundbergLee2017SHAP} & Game Theory / Perturbation & Local/Global & Agnostic & Shapley values for features \\
+\textbf{Grad-CAM} \cite{Selvaraju2017GradCAM} & Gradient-based & Local & Specific (CNNs) & Saliency/Heat map \\
+\textbf{OLA-Residual} & Statistical Approximation & Global (Layer) & Specific & Quantitative residual matrix ($\Delta\mathbf{W}$, $\Delta\mathbf{b}$) \\
+\textbf{AMP} & Probabilistic Propagation & Global & Specific & Output distribution moments ($\mu_y, \Sigma_y$) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+While local, attribution-based methods like LIME and SHAP have been invaluable, they provide explanations for individual predictions, not a characterization of the model's intrinsic mathematical properties. The frameworks discussed in this chapter aim to fill this gap by providing global, quantitative tools for analysis.
+
+\section{A Probabilistic Framework: Quantifying Non-Linearity with the OLA}
+\label{sec:ola_framework}
+
+The Optimal Linear Approximator (OLA) framework provides a tool for global, quantitative interpretability by answering a simple question: "How non-linear is this layer's function?" It does so by comparing the layer's actual learned transformation to the best possible linear approximation of that transformation.
+
+\subsection{Staged Statistical Probing}
+The methodology begins with a process called "Staged Statistical Probing." A representative batch of data is passed through the network, and the activation vectors at each critical interface are collected. For a given layer, this gives us a dataset of paired input-output activations, $\{(\vect{a}_i, \vect{b}_i)\}_{i=1}^N$. The core modeling assumption is that the joint distribution of these concatenated vectors, $p(\vect{a}, \vect{b})$, can be effectively modeled by a single multivariate Gaussian distribution. This allows us to compute the empirical joint mean vector and covariance matrix, which summarize the complete first and second-order statistics of the layer's transformation over the dataset.
+
+\subsection{Mathematical Derivation of the OLA}
+The OLA is the linear model ($\vect{W}_{\text{optimal}}, \vect{b}_{\text{optimal}}$) that provides the best possible linear approximation of the transformation from $\vect{a}$ to $\vect{b}$. Its parameters are derived directly from the conditional expectation of $\vect{b}$ given $\vect{a}$ for the fitted joint multivariate Gaussian distribution:
+\begin{equation}
+E[\vect{b}|\vect{a}] = \boldsymbol{\mu}_{\vect{b}} + \boldsymbol{\Sigma}_{\vect{ba}} \boldsymbol{\Sigma}_{\vect{aa}}^{-1} (\vect{a} - \boldsymbol{\mu}_{\vect{a}})
+\end{equation}
+where $\boldsymbol{\mu}_{\vect{a}}$, $\boldsymbol{\mu}_{\vect{b}}$, $\boldsymbol{\Sigma}_{\vect{aa}}$, and $\boldsymbol{\Sigma}_{\vect{ba}}$ are the corresponding blocks of the joint mean and covariance matrices. By rearranging this into the standard linear form $\vect{y} = \matr{W}\vect{x} + \vect{b}$, we can identify the OLA parameters:
+
+\textbf{Optimal Weight Matrix:}
+\begin{equation}
+\vect{W}_{\text{optimal}} = \boldsymbol{\Sigma}_{\vect{ba}} \boldsymbol{\Sigma}_{\vect{aa}}^{-1}
+\end{equation}
+\textbf{Optimal Bias Vector:}
+\begin{equation}
+\vect{b}_{\text{optimal}} = \boldsymbol{\mu}_{\vect{b}} - \vect{W}_{\text{optimal}} \boldsymbol{\mu}_{\vect{a}}
+\end{equation}
+The OLA represents the solution to a multivariate linear regression problem seeking to predict $\vect{b}$ from $\vect{a}$, providing a powerful analytical baseline.
+
+\subsection{The Non-Linearity Residual}
+The central insight of the framework emerges from the comparison between the analytically derived OLA and the actual neural network layer's parameters ($\vect{W}_{\text{NN}}, \vect{b}_{\text{NN}}$). The difference is defined as the \textbf{non-linearity residual}:
+\begin{align}
+\Delta\vect{W} &= \vect{W}_{\text{optimal}} - \vect{W}_{\text{NN}} \\
+\Delta\vect{b} &= \vect{b}_{\text{optimal}} - \vect{b}_{\text{NN}}
+\end{align}
+This residual exists precisely because the network's transformation is not purely linear due to the activation function. The OLA finds the best possible linear fit to the input-output data. The network's parameters must deviate from this optimal linear solution to account for the bending, shifting, and information-gating effects of the non-linearity. The magnitude of this residual, for instance the Frobenius norm $\|\Delta\vect{W}\|_F$, provides a direct, quantitative fingerprint of the degree to which the layer's behavior is non-linear.
+
+\subsection{Validation via Control Experiment}
+To rigorously validate that this residual is a direct consequence of non-linearity, the framework includes a critical control experiment: analyzing a purely linear transformation. Instead of analyzing the post-activation outputs, we analyze the pre-activation values, $\vect{Z} = \vect{W}_{\text{NN}}\vect{A}_{\text{in}} + \vect{b}_{\text{NN}}$. When the OLA is computed for this linear stage, its parameters exactly match the network's parameters ($\vect{W}_{\text{optimal}} = \vect{W}_{\text{NN}}$, $\vect{b}_{\text{optimal}} = \vect{b}_{\text{NN}}$), causing the non-linearity residual to vanish entirely. This confirms the residual is a direct and meaningful consequence of the non-linearity introduced by the activation function.
+
+\section{Uncertainty Quantification via Analytical Moment Propagation}
+\label{sec:uq_amp}
+
+A second powerful framework for interpretability is Analytical Moment Propagation (AMP). It provides a fast, deterministic, and principled approach to uncertainty quantification (UQ), allowing models to report a measure of their confidence.
+
+\subsection{Aleatoric vs. Epistemic Uncertainty}
+Uncertainty in machine learning predictions can be decomposed into two fundamental types:
+\begin{itemize}
+    \item \textbf{Aleatoric Uncertainty:} This is uncertainty inherent in the data itself, arising from measurement noise or intrinsic randomness. It is irreducible. In the AMP framework, this is modeled by treating the network's input $\vect{x}$ as a random variable with a given distribution, e.g., $\vect{x} \sim \mathcal{N}(\boldsymbol{\mu}_x, \boldsymbol{\Sigma}_x)$.
+    \item \textbf{Epistemic Uncertainty:} This reflects the model's uncertainty about its own parameters due to having been trained on a finite amount of data. This uncertainty is reducible with more data.
+\end{itemize}
+
+\subsection{AMP as a Sample-Free Alternative to Monte Carlo}
+The gold standard for capturing epistemic uncertainty is Bayesian Deep Learning, which places probability distributions over the model's weights. Computing the final predictive distribution requires marginalizing over these weights, an intractable integral. The common solution is to use sampling-based Monte Carlo (MC) methods, such as the popular \textbf{MC Dropout}, where numerous stochastic forward passes are performed at test time to estimate the output distribution \cite{GalGhahramani2016DropoutBayes}.
+
+AMP offers a powerful, sample-free alternative. Instead of sampling, it analytically propagates the moments of the distributions through the network.
+\begin{itemize}
+    \item \textbf{Deterministic Variational Inference (DVI):} AMP is used to analytically propagate the moments of both the activations \textit{and} the weights through the network, providing a deterministic approximation of the predictive distribution's moments in a single pass.
+    \item \textbf{Analytical MC Dropout:} The moments of the output under MC Dropout can be computed analytically in a single pass by deriving moment propagation rules for the dropout layer itself.
+\end{itemize}
+
+\subsection{Extension to Modern Architectures}
+While the core principles are established in simple feedforward networks, extending AMP to modern architectures introduces unique challenges that are active areas of research:
+\begin{itemize}
+    \item \textbf{Convolutional Neural Networks (CNNs):} The primary challenge is the max-pooling layer, a non-linear operation whose effect on a distribution's moments is difficult to compute analytically.
+    \item \textbf{Recurrent Neural Networks (RNNs \& LSTMs):} The gating mechanisms in LSTMs involve element-wise multiplication between different random variables. The product of two Gaussian variables is not itself Gaussian, violating the core assumption of many AMP methods and requiring approximations.
+    \item \textbf{Transformers:} The self-attention mechanism is highly non-linear, as the weights of the propagation are themselves data-dependent random variables computed via a softmax function. Recent breakthroughs have led to approximate expressions for moment propagation through the full attention block.
+\end{itemize}
+Despite these challenges, AMP provides a powerful theoretical tool for understanding the flow of uncertainty through even the most complex models, forming a crucial pillar of trustworthy and interpretable AI.
+
+\ifdefined\ispartofbook
+\else
+  \input{references.tex}
+  \end{document}
+\fi

@@ -1,0 +1,67 @@
+\ifdefined\ispartofbook
+\else
+  \input{preamble.tex}
+  \begin{document}
+  \input{Image_AMP_Layer.tex} % For standalone compilation
+\fi
+
+\input{Image_AMP_Layer.tex} % Include the AMP Layer diagram command file
+
+\section{The Forward Pass on a Distribution}
+\label{sec:forward_pass_distribution}
+
+This subchapter provides the detailed mathematical derivations for the concepts introduced in Subchapter 7.1. We will explain how to analytically propagate the first two statistical moments—the mean vector and the covariance matrix—through a single, complete neural network layer. This process, known as Analytical Moment Propagation (AMP), involves two distinct steps: propagation through the layer's linear (affine) transformation and propagation through its non-linear activation function.
+
+\subsection{Step 1: Propagation through the Linear Layer}
+Let the input to a layer be an $N$-dimensional random vector $\vect{X}$ that follows a multivariate normal distribution, $\vect{X} \sim \mathcal{N}(\boldsymbol{\mu}_X, \boldsymbol{\Sigma}_X)$. The first operation in a standard dense layer is the affine transformation to compute the pre-activation vector $\vect{Z}$:
+\begin{equation}
+    \vect{Z} = \vect{W}\vect{X} + \vect{b}
+\end{equation}
+where $\vect{W}$ is the weight matrix and $\vect{b}$ is the bias vector.
+
+Because the multivariate normal distribution is closed under affine transformations, the resulting pre-activation vector $\vect{Z}$ is also exactly normally distributed. We can find its mean and covariance using the standard rules for linear transformations of random vectors:
+\begin{itemize}
+    \item \textbf{The new mean vector, $\boldsymbol{\mu}_Z$,} is found by applying the transformation to the original mean:
+    \begin{equation}
+        \boldsymbol{\mu}_Z = \E[\vect{W}\vect{X} + \vect{b}] = \vect{W}\E[\vect{X}] + \vect{b} = \vect{W}\boldsymbol{\mu}_X + \vect{b}
+    \end{equation}
+    \item \textbf{The new covariance matrix, $\boldsymbol{\Sigma}_Z$,} is found by transforming the original covariance:
+    \begin{equation}
+        \boldsymbol{\Sigma}_Z = \text{Cov}(\vect{W}\vect{X} + \vect{b}) = \vect{W}\text{Cov}(\vect{X})\vect{W}^T = \vect{W}\boldsymbol{\Sigma}_X\vect{W}^T
+    \end{equation}
+\end{itemize}
+This first step is analytically exact and straightforward. It transforms the input Gaussian distribution into a new Gaussian distribution that has been rotated, scaled, and shifted in the vector space.
+
+\subsection{Step 2: Propagation through the Non-Linear (ReLU) Layer}
+The second step presents the core analytical challenge. The pre-activation vector $\vect{Z} \sim \mathcal{N}(\boldsymbol{\mu}_Z, \boldsymbol{\Sigma}_Z)$ is passed through the element-wise ReLU activation function to produce the post-activation vector $\vect{A}$:
+\begin{equation}
+    \vect{A} = \max(\vect{0}, \vect{Z})
+\end{equation}
+The resulting distribution, $p(\vect{A})$, is a Rectified Multivariate Normal (RMVN) distribution, which is no longer Gaussian. As discussed in Chapter \ref{chap:multivariate_stats}, its moments are analytically intractable for high dimensions. Therefore, AMP proceeds by computing the exact first two moments of this non-Gaussian distribution.
+
+The mean and variance of each component $A_i$ can be computed independently using the univariate rectified Gaussian formulas from Chapter 1. Let $(\mu_Z)_i$ be the $i$-th component of $\boldsymbol{\mu}_Z$ and $(\sigma_Z)_i = \sqrt{(\boldsymbol{\Sigma}_Z)_{ii}}$ be its standard deviation.
+\begin{itemize}
+    \item \textbf{The new mean vector, $\boldsymbol{\mu}_A$}, has components given by:
+    \begin{equation}
+        (\boldsymbol{\mu}_A)_i = \E[A_i] = (\mu_Z)_i \Phi\left(\frac{(\mu_Z)_i}{(\sigma_Z)_i}\right) + (\sigma_Z)_i \phi\left(\frac{(\mu_Z)_i}{(\sigma_Z)_i}\right)
+    \end{equation}
+    \item \textbf{The new covariance matrix, $\boldsymbol{\Sigma}_A$}, is more complex. The diagonal elements (the variances) can be computed element-wise:
+    \begin{equation}
+        (\boldsymbol{\Sigma}_A)_{ii} = \text{Var}(A_i) = \E[A_i^2] - (\E[A_i])^2
+    \end{equation}
+    However, the off-diagonal elements, $\text{Cov}(A_i, A_j)$, depend on the correlation between the pre-activations $Z_i$ and $Z_j$ and require the evaluation of high-dimensional integrals. State-of-the-art AMP frameworks use sophisticated analytical theorems or accurate approximations to compute this full covariance matrix \cite{Wright2024AnalyticCovariance, FreyHinton1999Transformations}.
+\end{itemize}
+
+\begin{figure}[h!]
+    \centering
+    \scalebox{0.7}{\amplayerdiagram}
+    \caption{Analytical Moment Propagation through a Single Layer. (A) The input is modeled as a Gaussian distribution. (B) The linear layer rotates, scales, and shifts the distribution. (C) The ReLU activation rectifies the distribution, projecting it onto the non-negative quadrant. (D) The resulting post-activation distribution is non-Gaussian, but its first two moments can be calculated.}
+    \label{fig:amp_layer}
+\end{figure}
+
+The figure above provides a visual summary of this entire process. It illustrates how a simple, symmetric input distribution is warped by the layer's operations into a complex, non-Gaussian output distribution. The core of forward AMP is the set of mathematical rules that allow us to calculate the parameters of this output distribution without ever needing to sample individual data points.
+
+\ifdefined\ispartofbook
+\else
+  \end{document}
+\fi

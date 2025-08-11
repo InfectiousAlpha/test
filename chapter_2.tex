@@ -1,0 +1,199 @@
+\ifdefined\ispartofbook
+\else
+  \input{preamble.tex}
+  \begin{document}
+\fi
+
+\chapter{The Engine of Learning: Forward and Backward Propagation}
+\label{chap:propagation}
+
+\input{Image_CombinedDiagram.tex} % Include the diagram command file
+
+After establishing the foundational components of a neural network in Chapter 1, this chapter will explain the dynamic process of how these components work together to learn from data. This is the "how-to" guide for a neural network, detailing the complete cycle of inference and learning. The entire chapter will be grounded in a matrix-centric perspective, emphasizing the linear algebra operations that make deep learning computationally feasible. We will first dissect the \textbf{forward pass}, the mechanism by which a network makes a prediction, and then delve into the \textbf{backward pass}, the elegant algorithm that allows the network to learn from its errors.
+
+\section{Architectural Foundations and Forward Propagation}
+\label{sec:forward_prop}
+
+The forward pass, also known as forward propagation, is the process by which a neural network takes an input and generates a prediction. It involves a unidirectional flow of information, moving sequentially from the input layer through each hidden layer and culminating at the output layer. The computation within any given layer $l$ of the network can be concisely described by two distinct steps: a linear transformation followed by a non-linear activation \cite{Nielsen2015Book, Goodfellow2016Book}.
+
+\subsection{The Two-Step Process: Linear and Activation Steps}
+Let us consider a single layer $l$. It receives an input from the previous layer, which we denote as the activation vector $\vect{A}^{[l-1]}$. The layer then performs two sequential operations to produce its own output activation, $\vect{A}^{[l]}$.
+
+\begin{enumerate}
+    \item \textbf{The Linear Step:} The first operation is an affine transformation. The layer computes a pre-activation value, denoted as $\vect{Z}^{[l]}$, by applying a linear transformation to the activations from the previous layer, $\vect{A}^{[l-1]}$. This involves multiplying by the layer's unique weight matrix $\vect{W}^{[l]}$ and adding its unique bias vector $\vect{b}^{[l]}$:
+    \begin{equation}
+    \vect{Z}^{[l]} = \vect{W}^{[l]}\vect{A}^{[l-1]} + \vect{b}^{[l]}
+    \label{eq:linear_step}
+    \end{equation}
+    The weight matrix $\vect{W}^{[l]}$ contains the learnable parameters that represent the strength of the connections between neurons of layer $l-1$ and layer $l$. The bias vector $\vect{b}^{[l]}$ provides a learnable offset for each neuron in layer $l$, increasing the model's flexibility.
+
+    \item \textbf{The Activation Step:} The second operation introduces the crucial non-linearity. The final output of the layer, its activation $\vect{A}^{[l]}$, is produced by applying the layer's designated non-linear activation function $g^{[l]}$ (such as the ReLU function discussed in Chapter \ref{chap:relu}) element-wise to the pre-activation vector $\vect{Z}^{[l]}$:
+    \begin{equation}
+    \vect{A}^{[l]} = g^{[l]}(\vect{Z}^{[l]})
+    \label{eq:activation_step}
+    \end{equation}
+    Without this non-linear step, a deep multi-layered network would mathematically collapse into a single, equivalent linear transformation, rendering it incapable of modeling the complex, non-linear relationships inherent in most real-world data.
+\end{enumerate}
+This two-step process is repeated for every layer in the network, from the first hidden layer (where the input $\vect{A}^{[0]}$ is simply the raw input data $\vect{X}$) until the final output layer, which produces the network's prediction, $\hat{\vect{y}} = \vect{A}^{[L]}$.
+
+\subsection{Vectorization and Mini-Batch Processing}
+While it is conceptually possible to process training examples one by one using loops, this approach is computationally inefficient. Modern deep learning frameworks leverage \textbf{vectorization}, replacing iterative loops with highly optimized matrix operations that can be executed in parallel on hardware like Graphics Processing Units (GPUs). This allows for the simultaneous processing of a "mini-batch" of multiple training examples.
+
+In this paradigm, the input is not a single vector but a matrix $\matr{X}$, where each column represents a different training example. All subsequent calculations are performed on matrices representing the entire batch. For a mini-batch of size $m$, the forward propagation equations become:
+\begin{equation}
+    \matr{Z}^{[l]} = \matr{W}^{[l]}\matr{A}^{[l-1]} + \vect{b}^{[l]}
+\end{equation}
+\begin{equation}
+    \matr{A}^{[l]} = g^{[l]}(\matr{Z}^{[l]})
+\end{equation}
+Note that the bias vector $\vect{b}^{[l]}$ is typically broadcasted, meaning it is added to each column of the product $\matr{W}^{[l]}\matr{A}^{[l-1]}$. This batch processing dramatically accelerates training by taking full advantage of the parallel processing capabilities of modern hardware.
+
+\subsection{Dimensional Analysis of the Forward Pass}
+A frequent challenge in implementing neural networks is ensuring that the dimensions of the matrices involved in these operations are compatible. A rigorous dimensional analysis clarifies these relationships. Let's define the following notation:
+\begin{itemize}
+    \item $m$: The number of training examples in a mini-batch.
+    \item $n^{[l]}$: The number of neurons (or units) in layer $l$. By convention, the input layer is layer 0, so $n^{[0]}$ is the number of features in the input data.
+\end{itemize}
+
+The shapes of the matrices and vectors for a generic layer $l$ are as follows:
+\begin{table}[h!]
+\centering
+\caption{Dimensional Analysis for Forward Propagation}
+\label{tab:forward_dims}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Matrix/Vector} & \multicolumn{1}{c}{\textbf{Symbol}} & \multicolumn{1}{c}{\textbf{Shape for a Batch of `m` Examples}} \\ \midrule
+Input Activations & $\matr{A}^{[l-1]}$ & $(n^{[l-1]}, m)$ \\
+Weight Matrix & $\matr{W}^{[l]}$ & $(n^{[l]}, n^{[l-1]})$ \\
+Bias Vector & $\vect{b}^{[l]}$ & $(n^{[l]}, 1)$ \\
+Pre-activation & $\matr{Z}^{[l]}$ & $(n^{[l]}, m)$ \\
+Post-activation & $\matr{A}^{[l]}$ & $(n^{[l]}, m)$ \\ \bottomrule
+\end{tabular}
+\end{table}
+Verifying these dimensions is a critical debugging step. The number of columns in the weight matrix $\matr{W}^{[l]}$ must match the number of rows in the activation matrix $\matr{A}^{[l-1]}$ (which is the number of neurons in the previous layer). The result of the multiplication, $\matr{W}^{[l]}\matr{A}^{[l-1]}$, will have dimensions $(n^{[l]}, m)$, which correctly matches the dimensions of the pre-activation matrix $\matr{Z}^{[l]}$.
+
+\section{Backpropagation and Learning from Error}
+\label{sec:backprop}
+
+If the forward pass is the network's process of making a prediction, the backward pass is its process of learning from its mistakes. This is achieved through the \textbf{backpropagation} algorithm, which is an elegant and computationally efficient application of the chain rule from calculus \cite{Rumelhart1986Backprop}.
+
+\subsection{Quantifying Error: The Loss Function}
+The learning process begins after a forward pass is complete and the network produces a prediction, denoted $\hat{\vect{y}}$ (which is the final activation $\matr{A}^{[L]}$). This prediction must be compared to the ground-truth target value, $\vect{y}$. This comparison is performed using a \textbf{loss function} (or cost function), $L(\hat{\vect{y}}, \vect{y})$, which provides a quantitative measure of the "error" or "cost" of the prediction. The overarching goal of training is to systematically adjust the network's weights and biases to minimize the value of this function.
+
+Common choices for the loss function depend on the task:
+\begin{itemize}
+    \item \textbf{For Regression:} The Mean Squared Error (MSE) is a common choice:
+    \begin{equation}
+        L = \frac{1}{m} \sum_{i=1}^m (\hat{y}_i - y_i)^2
+    \end{equation}
+    \item \textbf{For Classification:} The Categorical Cross-Entropy loss is typically used:
+    \begin{equation}
+        L = -\frac{1}{m} \sum_{i=1}^m \sum_{j=1}^{C} y_{ij} \log(\hat{y}_{ij})
+    \end{equation}
+    where $C$ is the number of classes.
+\end{itemize}
+
+\subsection{The Backpropagation Algorithm}
+Backpropagation, short for "backward propagation of errors," efficiently computes the gradient of the loss function with respect to every single weight and bias in the network. These gradients indicate the direction in parameter space that will lead to the steepest increase in the loss. By taking a small step in the opposite direction—a process known as \textbf{gradient descent}—the network updates its parameters to reduce the error \cite{Bottou2018Optimization}.
+
+The algorithm is defined by four fundamental equations that provide a recursive recipe to compute all the necessary gradients, starting from the final layer and working backwards. Let $\boldsymbol{\delta}^{[l]}$ denote the error at layer $l$.
+
+\begin{enumerate}
+    \item \textbf{Equation 1: Error at the Output Layer ($\boldsymbol{\delta}^{[L]}$):} The error at the final layer is the derivative of the loss with respect to the pre-activations, modulated by the activation function's derivative.
+    \begin{equation}
+    \boldsymbol{\delta}^{[L]} = \nabla_A L \odot g'^{[L]}(\vect{Z}^{[L]})
+    \end{equation}
+    Here, $\nabla_A L$ is the gradient of the loss with respect to the final activations, and $\odot$ denotes the element-wise (Hadamard) product.
+
+    \item \textbf{Equation 2: Error in terms of Next Layer's Error ($\boldsymbol{\delta}^{[l]}$):} The error at a hidden layer $l$ is calculated by propagating the error from the subsequent layer, $\boldsymbol{\delta}^{[l+1]}$, back through the weight matrix $\vect{W}^{[l+1]}$ and multiplying by the local derivative of the activation function.
+    \begin{equation}
+    \boldsymbol{\delta}^{[l]} = ((\vect{W}^{[l+1]})^T \boldsymbol{\delta}^{[l+1]}) \odot g'^{[l]}(\vect{Z}^{[l]})
+    \end{equation}
+
+    \item \textbf{Equation 3: Gradient with respect to Biases ($\frac{\partial L}{\partial \vect{b}^{[l]}}$):} The gradient for the biases of layer $l$ is simply the error signal at that layer, averaged over the mini-batch.
+    \begin{equation}
+    \frac{\partial L}{\partial \vect{b}^{[l]}} = \frac{1}{m} \sum_{i=1}^{m} \boldsymbol{\delta}^{[l](i)}
+    \end{equation}
+
+    \item \textbf{Equation 4: Gradient with respect to Weights ($\frac{\partial L}{\partial \vect{W}^{[l]}}$):} The gradient for the weights of layer $l$ is the outer product of the error signal at that layer and the activations from the previous layer, averaged over the mini-batch.
+    \begin{equation}
+    \frac{\partial L}{\partial \vect{W}^{[l]}} = \frac{1}{m} \matr{\delta}^{[l]} (\matr{A}^{[l-1]})^T
+    \end{equation}
+\end{enumerate}
+These equations provide a complete and efficient recipe for computing the gradients needed to train the network.
+
+\subsection{A Comprehensive Numerical Example: A 2-2-1 Network}
+To make these abstract concepts concrete, we will now walk through a complete, step-by-step numerical example of a single learning cycle for a simple, fully-connected neural network \cite{Mazur2015BackpropExample, Schiendorfer2020BackpropExample}.
+
+\subsubsection{Network and Parameter Initialization}
+\begin{itemize}
+    \item \textbf{Architecture:} 2 input neurons, 2 hidden neurons, 1 output neuron.
+    \item \textbf{Activation Functions:} ReLU for the hidden layer ($g^{[1]}$), Sigmoid for the output layer ($g^{[2]}$).
+    \item \textbf{Loss Function:} Mean Squared Error (MSE), $J = \frac{1}{2}(\hat{y} - y)^2$.
+    \item \textbf{Training Data:} A single sample with input $\vect{X} = \begin{pmatrix} 2 \\ 3 \end{pmatrix}$ and target $Y = \begin{pmatrix} 1 \end{pmatrix}$.
+    \item \textbf{Initial Parameters:}
+        \begin{itemize}
+            \item \textbf{Layer 1 (Hidden):} $\vect{W}^{[1]} = \begin{pmatrix} 0.1 & 0.2 \\ -0.3 & 0.4 \end{pmatrix}$, $\vect{b}^{[1]} = \begin{pmatrix} 0.5 \\ -0.5 \end{pmatrix}$
+            \item \textbf{Layer 2 (Output):} $\vect{W}^{[2]} = \begin{pmatrix} 0.6 & -0.7 \end{pmatrix}$, $\vect{b}^{[2]} = \begin{pmatrix} 0.8 \end{pmatrix}$
+        \end{itemize}
+\end{itemize}
+
+\subsubsection{Step-by-Step Forward Pass}
+\begin{enumerate}
+    \item \textbf{Calculate Hidden Layer Pre-activation $\vect{Z}^{[1]}$:}
+    \[ \vect{Z}^{[1]} = \vect{W}^{[1]}\vect{X} + \vect{b}^{[1]} = \begin{pmatrix} 0.1 & 0.2 \\ -0.3 & 0.4 \end{pmatrix} \begin{pmatrix} 2 \\ 3 \end{pmatrix} + \begin{pmatrix} 0.5 \\ -0.5 \end{pmatrix} = \begin{pmatrix} 0.2+0.6 \\ -0.6+1.2 \end{pmatrix} + \begin{pmatrix} 0.5 \\ -0.5 \end{pmatrix} = \begin{pmatrix} 1.3 \\ 0.1 \end{pmatrix} \]
+
+    \item \textbf{Calculate Hidden Layer Activation $\vect{A}^{[1]}$:}
+    \[ \vect{A}^{[1]} = \text{ReLU}(\vect{Z}^{[1]}) = \begin{pmatrix} \max(0, 1.3) \\ \max(0, 0.1) \end{pmatrix} = \begin{pmatrix} 1.3 \\ 0.1 \end{pmatrix} \]
+
+    \item \textbf{Calculate Output Layer Pre-activation $\vect{Z}^{[2]}$:}
+    \[ \vect{Z}^{[2]} = \vect{W}^{[2]}\vect{A}^{[1]} + \vect{b}^{[2]} = \begin{pmatrix} 0.6 & -0.7 \end{pmatrix} \begin{pmatrix} 1.3 \\ 0.1 \end{pmatrix} + \begin{pmatrix} 0.8 \end{pmatrix} = (0.78 - 0.07) + 0.8 = 1.51 \]
+
+    \item \textbf{Calculate Output Layer Activation $\vect{A}^{[2]}$ (Prediction $\hat{y}$):}
+    \[ \hat{y} = \vect{A}^{[2]} = \text{Sigmoid}(1.51) = \frac{1}{1 + e^{-1.51}} \approx 0.819 \]
+
+    \item \textbf{Calculate Loss $J$:}
+    \[ J = \frac{1}{2}(0.819 - 1)^2 \approx \frac{1}{2}(-0.181)^2 \approx 0.01638 \]
+\end{enumerate}
+
+\subsubsection{Step-by-Step Backward Pass}
+Now we propagate the error backward. The derivative of the Sigmoid function is $\sigma'(z) = \sigma(z)(1-\sigma(z))$ and the derivative of ReLU is 1 for positive inputs.
+\begin{enumerate}
+    \item \textbf{Calculate Error at Output Layer ($\boldsymbol{\delta}^{[2]}$):}
+    The derivative of the MSE loss is $(\hat{y} - y)$.
+    \[ \boldsymbol{\delta}^{[2]} = (\hat{y} - y) \odot \text{Sigmoid}'(\vect{Z}^{[2]}) = (0.819 - 1) \cdot (0.819 \cdot (1-0.819)) \approx -0.181 \cdot 0.148 \approx -0.0268 \]
+
+    \item \textbf{Calculate Gradients for Layer 2 ($\nabla\vect{W}^{[2]}$, $\nabla\vect{b}^{[2]}$):}
+    \[ \nabla\vect{W}^{[2]} = \boldsymbol{\delta}^{[2]} (\vect{A}^{[1]})^T = -0.0268 \begin{pmatrix} 1.3 & 0.1 \end{pmatrix} = \begin{pmatrix} -0.03484 & -0.00268 \end{pmatrix} \]
+    \[ \nabla\vect{b}^{[2]} = \boldsymbol{\delta}^{[2]} = -0.0268 \]
+
+    \item \textbf{Calculate Error at Hidden Layer ($\boldsymbol{\delta}^{[1]}$):}
+    \[ \boldsymbol{\delta}^{[1]} = ((\vect{W}^{[2]})^T \boldsymbol{\delta}^{[2]}) \odot \text{ReLU}'(\vect{Z}^{[1]}) = \left( \begin{pmatrix} 0.6 \\ -0.7 \end{pmatrix} (-0.0268) \right) \odot \begin{pmatrix} 1 \\ 1 \end{pmatrix} = \begin{pmatrix} -0.01608 \\ 0.01876 \end{pmatrix} \]
+
+    \item \textbf{Calculate Gradients for Layer 1 ($\nabla\vect{W}^{[1]}$, $\nabla\vect{b}^{[1]}$):}
+    \[ \nabla\vect{W}^{[1]} = \boldsymbol{\delta}^{[1]} (\vect{X})^T = \begin{pmatrix} -0.01608 \\ 0.01876 \end{pmatrix} \begin{pmatrix} 2 & 3 \end{pmatrix} = \begin{pmatrix} -0.03216 & -0.04824 \\ 0.03752 & 0.05628 \end{pmatrix} \]
+    \[ \nabla\vect{b}^{[1]} = \boldsymbol{\delta}^{[1]} = \begin{pmatrix} -0.01608 \\ 0.01876 \end{pmatrix} \]
+\end{enumerate}
+
+\subsubsection{Parameter Update via Gradient Descent}
+Finally, we update the parameters using the calculated gradients and a learning rate, let's say $\eta = 0.1$. The update rule is $W_{new} = W_{old} - \eta \cdot \nabla W$.
+\begin{itemize}
+    \item \textbf{Update $\vect{W}^{[2]}$:} $\vect{W}^{[2]} \to \begin{pmatrix} 0.6 & -0.7 \end{pmatrix} - 0.1 \begin{pmatrix} -0.03484 & -0.00268 \end{pmatrix} = \begin{pmatrix} 0.603484 & -0.699732 \end{pmatrix}$
+    \item \textbf{Update $\vect{b}^{[2]}$:} $\vect{b}^{[2]} \to 0.8 - 0.1(-0.0268) = 0.80268$
+    \item \textbf{Update $\vect{W}^{[1]}$:} $\vect{W}^{[1]} \to \begin{pmatrix} 0.1 & 0.2 \\ -0.3 & 0.4 \end{pmatrix} - 0.1 \begin{pmatrix} -0.03216 & -0.04824 \\ 0.03752 & 0.05628 \end{pmatrix} = \begin{pmatrix} 0.103216 & 0.204824 \\ -0.303752 & 0.394372 \end{pmatrix}$
+    \item \textbf{Update $\vect{b}^{[1]}$:} $\vect{b}^{[1]} \to \begin{pmatrix} 0.5 \\ -0.5 \end{pmatrix} - 0.1 \begin{pmatrix} -0.01608 \\ 0.01876 \end{pmatrix} = \begin{pmatrix} 0.501608 \\ -0.501876 \end{pmatrix}$
+\end{itemize}
+After this single step of learning, the network's parameters have been slightly adjusted in a direction that is guaranteed to reduce the error for this specific training example. Repeating this process thousands or millions of times over a large dataset is what constitutes the training of a deep neural network.
+
+\begin{figure}[h!]
+    \centering
+    \scalebox{0.6}{\combineddiagram}
+    \caption{A combined forward pass and back propagation.}
+    \label{fig:combine}
+\end{figure}
+
+\ifdefined\ispartofbook
+\else
+  \input{references.tex}
+  \end{document}
+\fi
