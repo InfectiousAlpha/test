@@ -1,0 +1,55 @@
+% Preamble for "A Journey into Deep Learning"
+
+% --- DOCUMENT CLASS & GEOMETRY ---
+\documentclass[11pt, a4paper]{report} % Changed from 'article' to 'report' to enable \chapter command
+\usepackage[margin=1in]{geometry} % Set page margins
+
+% --- FONT & ENCODING ---
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+% --- MATHEMATICS & SYMBOLS ---
+\usepackage{amsmath, amssymb, amsthm} % For advanced math typesetting and theorems
+\usepackage{amsfonts}                 % For math fonts
+\usepackage{bm}                       % For bold math symbols
+
+% --- GRAPHICS & TABLES ---
+\usepackage{graphicx}                 % To include graphics
+\usepackage{booktabs}                 % For professional-quality tables
+\usepackage{caption}                  % For customizing captions
+
+% --- LISTS & LAYOUT ---
+\usepackage{enumitem}                 % For list customization
+\usepackage{cases}                    % For cases environment
+
+% --- TIKZ GRAPHICS PACKAGES (NEWLY ADDED) ---
+\usepackage{tikz}
+\usetikzlibrary{
+    positioning,
+    arrows.meta,
+    fit,
+    decorations.pathreplacing,
+    calligraphy,
+    shapes.geometric,
+    shadows,
+    chains,
+    backgrounds % For layering
+}
+
+% --- HYPERLINKS & URLS ---
+\usepackage[hyphens]{url}             % For URL formatting
+\usepackage{hyperref}                 % For hyperlinks and cross-references
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+    citecolor=red,
+}
+
+% --- CUSTOM COMMANDS ---
+\newcommand{\vect}[1]{\mathbf{#1}}
+\newcommand{\matr}[1]{\mathbf{#1}}
+\newcommand{\normdist}{\mathcal{N}}
+\newcommand{\reals}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
